@@ -1,13 +1,20 @@
 ---
-title: "Project_3_Data"
+title: "Accounting Curriculum Visualization"
+date: "`r Sys.Date()`"
 output: html_document
 ---
+
+# Members
+  **Coffy Andrews-Guo,  Joseph Foy,  Krutika Patel,  Peter Phung**
+  
+  
+Please refer to the project write-up document for further information.
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-```{r}
+```{r libraries, message=FALSE}
 library(wordcloud)
 library(tidyr)
 library(tidyverse)
@@ -15,34 +22,95 @@ library(dplyr)
 library(RMySQL)
 ```
 
-
-```{r}
-conn <- dbConnect(MySQL(), user = "root", password = "password", host = "localhost", port =  3306, dbname = "data_science")
+```{r , include=FALSE, message=FALSE}
+user <- ""
+password<- ""
 ```
 
 ?RMySQL
 
-```{r}
-words <- c("technology", "data", "data science", "regression", "introduces students to the basics of")
+# Query Function
+```{r Query Function}
+MyFunction <- function(x){
+
+  con <- dbConnect(
+    MySQL(),
+    user = user, password = password, host = "localhost", port =  3306, dbname = "data_science"
+  )
+
+ 
+  df <- dbGetQuery(con, paste("select count(*)
+  from course
+  where description like '%", x, "%'", sep = ""))
+
+  dbDisconnect(con)
+  return(df)
+}
+```
+
+
+# Skills
+```{r Skills}
+csv <- data.frame(read.csv("https://raw.githubusercontent.com/candrewxs/D607_Project3/main/Accounting%20Attributes%20for%20Data%20Analysis.xlsx%20-%20DATA%20Scientist%20.csv"))
+```
+
+
+# Technical Skills
+```{r, message=FALSE}
+words <- as.vector(csv$Technical.Skills)
+
 results <- c()
 counter <- 1
+
 for(x in words)
 {
-  results [[counter]] <- dbGetQuery(conn, paste("select count(*)
-  from course
-  where Description like '%", x, "%'", sep = ""))
-  counter = counter + 1
+  results[[counter]] <- MyFunction(x)
+  counter <- counter +1
 }
 
 results <- as.data.frame(bind_rows(results))
 results <- cbind(as.data.frame(words), bind_cols(words, results))
 results <- results[-2]
 colnames(results) <- c("Skill", "Count")
+
+results
+```
+
+```{r}
+wordcloud(words = results$Skill, freq = results$Count,  max.words=200, random.order=FALSE, rot.per=0.35,            colors=brewer.pal(8, "Dark2"))
+```
+
+
+# Soft Skills
+```{r, message=FALSE}
+words <- as.vector(csv$Soft.Skills)
+words <- words[words != ""]
+results <- c()
+counter <- 1
+
+for(x in words)
+{
+  results[[counter]] <- MyFunction(x)
+  counter <- counter +1
+}
+
+results <- as.data.frame(bind_rows(results))
+results <- cbind(as.data.frame(words), bind_cols(words, results))
+results <- results[-2]
+colnames(results) <- c("Skill", "Count")
+
 results
 ```
 
 
 ```{r}
-wordcloud(words = results$Skill, freq = results$Count, max.words = 300, colors = c("grey80", "darkgoldenrod1", "tomato"))
+wordcloud(words = results$Skill, freq = results$Count,  max.words=200, random.order=FALSE, rot.per=0.35,            colors=brewer.pal(8, "Dark2"))
 ```
+
+# Conclusions
+
+The following code allows us to visualize the course descriptions from accounting programs. We are able to target data science skills and analyze how they are being highlighted in the curriculum. From the finding, "Regression", "Database", "Modeling", and "Statistics" are the highest data science skills taught. In terms of soft skills, we found the highest skill taught was communication. Looking at the overall picture, the amount of courses that feature communication are only a fraction. These findings are important way to understand the current way accounting curriculum is set up, and how schools can improve it to attract employers and students alike.
+
+
+
 
