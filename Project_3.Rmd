@@ -1,13 +1,20 @@
 ---
-title: "Project_3"
+title: "Accounting Curriculum Data"
+date: "`r Sys.Date()`"
 output: html_document
 ---
+
+# Members
+  **Coffy Andrews-Guo,  Joseph Foy,  Krutika Patel,  Peter Phung**
+  
+  
+Please refer to the project write-up document for further information.
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-```{r}
+```{r libraries, message=FALSE}
 library(RMySQL)
 library(tidyr)
 library(tidyverse)
@@ -16,7 +23,9 @@ library(readr)
 ```
 
 
-```{r csv}
+
+# Data
+```{r csv, message=FALSE}
 
 csv <- data.frame(read.csv("https://raw.githubusercontent.com/Patel-Krutika/Data_607/main/Acct_Curricula2.csv"))
 col <- colnames(csv) 
@@ -25,13 +34,18 @@ colnames(csv) <- col
 
 csv <- distinct(csv)
 
+# Create School_ID
+# School_ID serves as the primary key for the School table, and identifies a unique school
 csv <- csv %>% group_by(School, City, State, ZipCode, Total.Tuition.In.State, Tuition.per.Credit.In.State, In.state.fees, Total.Tuition.Out.of.State, Tuition.per.Credit.Out.of.State, Out.of.state.fees) %>% mutate(School_ID=cur_group_id())
 
+# Create Program_ID
+# Program_ID serves as the primary key for the Program table, and identifies a unique program
 csv <- csv %>% group_by(School_ID, Degree.Program.Name, Modality, Program.Degree.Credits, Programmic.Accrediation) %>% mutate(Program_ID=cur_group_id())
-
 ```
 
-```{r School}
+
+# School
+```{r School, message=FALSE}
 school <- csv %>% select(School_ID, School, City, State, ZipCode, Total.Tuition.In.State, Tuition.per.Credit.In.State, In.state.fees, Total.Tuition.Out.of.State, Tuition.per.Credit.Out.of.State, Out.of.state.fees)
 
 school <- subset(school, select = -c(Modality, Degree.Program.Name, Program.Degree.Credits, Programmic.Accrediation) )
@@ -42,17 +56,20 @@ school <- distinct(school)
 
 ```
 
-```{r Program}
+
+# Program
+```{r Program, message=FALSE}
 program <- csv %>% select(Program_ID, School_ID, Name = Degree.Program.Name, Modality, Credits = Program.Degree.Credits, Program_Accrediation = Programmic.Accrediation)
 
 program <- distinct(program)
 
 ```
 
-```{r Course}
 
-course_data <- csv
+# Course
+```{r Course, message=FALSE}
 
+#Filter Description Column
 rem_dup_word <- function(x){
   x <- tolower(x)
   x <- gsub("-", " ", x)
@@ -62,6 +79,7 @@ rem_dup_word <- function(x){
         collapse =  " "))
 }
 
+course_data <- csv
 course_description_df <- course_data %>%
   select(Description) %>%
   apply(MARGIN = 2, FUN = enc2utf8) %>%
@@ -70,23 +88,29 @@ course_description_df <- course_data %>%
   mutate(Filtered_Description = rem_dup_word(Description)) %>%
   mutate(Filtered_Description = na_if(Filtered_Description, "NA"))
 
-course_data$Filtered_Description <- course_description_df$Filtered_Description
+course_data$Filtered_description <- course_description_df$Filtered_Description
 
 course_data <- course_data %>%
   select(-Description)
-
-course <- data.frame(Course_Num = course_data$Grad.Course.Number, Program_ID = course_data$Program_ID, Name = course_data$Name.of.Course, Description = course_data$Filtered_Description, Credits = course_data$Course.Credits, Core_Or_Elective = course_data$Core.or.Elective)
+course <- data.frame(Course_Num = course_data$Grad.Course.Number, Program_ID = course_data$Program_ID, Name = course_data$Name.of.Course, Description = course_data$Filtered_description, Credits = course_data$Course.Credits, Core_Or_Elective = course_data$Core.or.Elective)
 
 course <- distinct(course)
-
 ```
 
 
+
+```{r, include=FALSE}
+user <- ""
+pass <- ""
+```
+
+# Connection
 ```{r}
-connection <- dbConnect(MySQL(), user = "root", password = "password", host = 'localhost', dbname = 'data_science')
+connection <- dbConnect(MySQL(), user = user, password = pass, host = 'localhost', dbname = 'data_science')
 ```
 
 
+# Tables
 ```{r sql_server}
 
 dbSendQuery(connection, "SET GLOBAL local_infile = true;")
@@ -94,10 +118,9 @@ dbSendQuery(connection, "SET GLOBAL local_infile = true;")
 rs <- dbSendQuery(connection, 'set character set "utf8"')
 rs <- dbSendQuery(connection, 'SET NAMES utf8')
 
-dbWriteTable(connection, "program", data.frame(program), overwrite = TRUE)
-dbWriteTable(connection, "school", data.frame(school), overwrite = TRUE)
-dbWriteTable(connection, "course", data.frame(course), overwrite = TRUE)
-
+dbWriteTable(connection, "school", school, overwrite = TRUE)
+dbWriteTable(connection, "program", program, overwrite = TRUE)
+dbWriteTable(connection, "course", course, overwrite = TRUE)
 
 ```
 
