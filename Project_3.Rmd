@@ -1,0 +1,103 @@
+---
+title: "Project_3"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(RMySQL)
+library(tidyr)
+library(tidyverse)
+library(dplyr)
+library(readr)
+```
+
+
+```{r csv}
+
+csv <- data.frame(read.csv("https://raw.githubusercontent.com/Patel-Krutika/Data_607/main/Acct_Curricula2.csv"))
+col <- colnames(csv) 
+col[1] <- "School"
+colnames(csv) <- col
+
+csv <- distinct(csv)
+
+csv <- csv %>% group_by(School, City, State, ZipCode, Total.Tuition.In.State, Tuition.per.Credit.In.State, In.state.fees, Total.Tuition.Out.of.State, Tuition.per.Credit.Out.of.State, Out.of.state.fees) %>% mutate(School_ID=cur_group_id())
+
+csv <- csv %>% group_by(School_ID, Degree.Program.Name, Modality, Program.Degree.Credits, Programmic.Accrediation) %>% mutate(Program_ID=cur_group_id())
+
+```
+
+```{r School}
+school <- csv %>% select(School_ID, School, City, State, ZipCode, Total.Tuition.In.State, Tuition.per.Credit.In.State, In.state.fees, Total.Tuition.Out.of.State, Tuition.per.Credit.Out.of.State, Out.of.state.fees)
+
+school <- subset(school, select = -c(Modality, Degree.Program.Name, Program.Degree.Credits, Programmic.Accrediation) )
+
+colnames(school) <- c("School_ID", "School", "City", "State", "ZipCode", "Total_Tuition_In_State", "Tuition_per_Credit_In_State", "In_state_fees", "Total_Tuition_Out_of_State", "Tuition_per_Credit_Out_of_State", "Out_of_state_fees")
+
+school <- distinct(school)
+
+```
+
+```{r Program}
+program <- csv %>% select(Program_ID, School_ID, Name = Degree.Program.Name, Modality, Credits = Program.Degree.Credits, Program_Accrediation = Programmic.Accrediation)
+
+program <- distinct(program)
+
+```
+
+```{r Course}
+
+course_data <- csv
+
+rem_dup_word <- function(x){
+  x <- tolower(x)
+  x <- gsub("-", " ", x)
+  x <- gsub("[[:punct:]]", "", x)
+  x <- gsub("[[:digit:]]", "", x)
+  return(paste(unique(trimws(unlist(strsplit(x,split=" ",fixed=F,perl=T)))),
+        collapse =  " "))
+}
+
+course_description_df <- course_data %>%
+  select(Description) %>%
+  apply(MARGIN = 2, FUN = enc2utf8) %>%
+  as.data.frame() %>%
+  rowwise() %>%
+  mutate(Filtered_Description = rem_dup_word(Description)) %>%
+  mutate(Filtered_Description = na_if(Filtered_Description, "NA"))
+
+course_data$Filtered_Description <- course_description_df$Filtered_Description
+
+course_data <- course_data %>%
+  select(-Description)
+
+course <- data.frame(Course_Num = course_data$Grad.Course.Number, Program_ID = course_data$Program_ID, Name = course_data$Name.of.Course, Description = course_data$Filtered_Description, Credits = course_data$Course.Credits, Core_Or_Elective = course_data$Core.or.Elective)
+
+course <- distinct(course)
+
+```
+
+
+```{r}
+connection <- dbConnect(MySQL(), user = "root", password = "password", host = 'localhost', dbname = 'data_science')
+```
+
+
+```{r sql_server}
+
+dbSendQuery(connection, "SET GLOBAL local_infile = true;")
+
+rs <- dbSendQuery(connection, 'set character set "utf8"')
+rs <- dbSendQuery(connection, 'SET NAMES utf8')
+
+dbWriteTable(connection, "program", data.frame(program), overwrite = TRUE)
+dbWriteTable(connection, "school", data.frame(school), overwrite = TRUE)
+dbWriteTable(connection, "course", data.frame(course), overwrite = TRUE)
+
+
+```
+

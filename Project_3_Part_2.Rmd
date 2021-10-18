@@ -1,0 +1,48 @@
+---
+title: "Project_3_Data"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(wordcloud)
+library(tidyr)
+library(tidyverse)
+library(dplyr)
+library(RMySQL)
+```
+
+
+```{r}
+conn <- dbConnect(MySQL(), user = "root", password = "password", host = "localhost", port =  3306, dbname = "data_science")
+```
+
+?RMySQL
+
+```{r}
+words <- c("technology", "data", "data science", "regression", "introduces students to the basics of")
+results <- c()
+counter <- 1
+for(x in words)
+{
+  results [[counter]] <- dbGetQuery(conn, paste("select count(*)
+  from course
+  where Description like '%", x, "%'", sep = ""))
+  counter = counter + 1
+}
+
+results <- as.data.frame(bind_rows(results))
+results <- cbind(as.data.frame(words), bind_cols(words, results))
+results <- results[-2]
+colnames(results) <- c("Skill", "Count")
+results
+```
+
+
+```{r}
+wordcloud(words = results$Skill, freq = results$Count, max.words = 300, colors = c("grey80", "darkgoldenrod1", "tomato"))
+```
+
